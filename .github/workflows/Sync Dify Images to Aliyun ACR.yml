@@ -5,7 +5,7 @@ on:
 
 env:
   REGISTRY: ${{ secrets.ACR_REGISTRY }}
-  NAMESPACE: "dify"  # 命名空间，可自定义
+  NAMESPACE: "zeyatan"  # 命名空间，可自定义
 
 jobs:
   sync:
