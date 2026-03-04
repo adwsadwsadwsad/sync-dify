@@ -1,0 +1,56 @@
+name: Sync Dify Images to Aliyun ACR
+
+on:
+  workflow_dispatch:  # 手动触发
+
+env:
+  REGISTRY: ${{ secrets.ACR_REGISTRY }}
+  NAMESPACE: "dify"  # 命名空间，可自定义
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Aliyun ACR
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login \
+            --username "${{ secrets.ACR_USERNAME }}" \
+            --password-stdin ${{ env.REGISTRY }}
+
+      - name: Pull and Push Images
+        run: |
+          # 定义 Dify 所需所有镜像（Dify v1.1.3 版本）
+          IMAGES=(
+            "langgenius/dify-api:1.1.3"
+            "langgenius/dify-web:1.1.3"
+            "langgenius/dify-sandbox:0.2.10"
+            "postgres:15-alpine"
+            "redis:7-alpine"
+            "nginx:alpine"
+            "ubuntu:22.04"
+            "semitechnologies/weaviate:1.19.0"
+          )
+
+          for img in "${IMAGES[@]}"; do
+            # 处理镜像名（将 / 替换为 _）
+            acr_tag=$(echo "$img" | sed 's|/|_|g')
+            full_acr_image="${{ env.REGISTRY }}/${{ env.NAMESPACE }}/$acr_tag"
+
+            echo "🔄 Processing $img ..."
+            
+            # 拉取镜像
+            if ! docker pull "$img"; then
+              echo "❌ Failed to pull $img"
+              exit 1
+            fi
+
+            # 打标签并推送
+            docker tag "$img" "$full_acr_image"
+            if ! docker push "$full_acr_image"; then
+              echo "❌ Failed to push $full_acr_image"
+              exit 1
+            fi
+
+            echo "✅ Synced: $img -> $full_acr_image"
+            echo "----------------------------------------"
+          done
